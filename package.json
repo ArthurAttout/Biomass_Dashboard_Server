@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "get-json": "^1.0.1",
     "mysql": "^2.17.1",
     "uuid": "^3.3.2",
     "websocket": "^1.0.28",
