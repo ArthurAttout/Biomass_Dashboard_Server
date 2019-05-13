@@ -34,6 +34,14 @@ inner join report_to_image on report_image.id = report_to_image.FK_Image
 where report_to_image.FK_Report = ?
 `
 
+const queryHistory = `
+SELECT history.id, history.certitude ,report_image.path, history.date, biomass.name 
+FROM biomass_database.history 
+inner join report_image on report_image.id = history.FK_Image
+inner join biomass on biomass.id = history.FK_Biomass
+limit 10;
+`
+
 wss.on('connection', function incoming(ws) {
 	
 	console.log("New connection")
@@ -60,17 +68,43 @@ wss.on('connection', function incoming(ws) {
 				
 				console.log("Received hello from %s. Stored ws in map as %s",message['username'],uuid)
 				websocketMap.set(uuid,{
-					"username":message['username']
+					"username":message['username'],
+					"ws":ws,
 				})
 
 				console.log("Current WS map : ")
 				websocketMap.forEach((v,k) => {
-					console.log("%s -> %s",k,JSON.stringify(v))
+					console.log("%s -> %s",k,v.username)
 				})
 				
 				ws.send(JSON.stringify({
 					"result":"OK_HELLO"
 				}))
+				break
+				
+			case 'NEW_REPORT':
+				console.log("Received a new report")
+			
+			case 'NEW_HISTORY':
+				console.log("Received a new history entry")
+				websocketMap.forEach((v,k) => {
+					console.log("Sending new history elem to %s, username %s",v,k.username)
+					k.ws.send(JSON.stringify({
+						"result":"NEW_HISTORY",
+						"elem":message.elem
+					}))
+				})
+				break
+				
+			case 'GET_HISTORY':
+				console.log("Received requests for history")
+				connection.query(queryHistory, function (error, results, fields){
+					if (error) throw error;
+					ws.send(JSON.stringify({
+						"result":"OK_HISTORY",
+						"history":results
+					}))
+				})
 				break
 
 			case 'GET_REPORTS':
