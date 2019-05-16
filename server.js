@@ -94,6 +94,25 @@ wss.on('connection', function incoming(ws) {
 				
 			case 'NEW_REPORT':
 				console.log("Received a new report")
+				getJSON(geoloc_url_pref + message.new_report.latitude + "+" + message.new_report.longitude + geoloc_url_suff, function(error, response){
+					websocketMap.forEach((v,k) => {
+						console.log("Sending new report to %s, key %s",k,v.username)
+						
+						v.ws.send(JSON.stringify({
+							"result":"NEW_REPORT",
+							"new_report":{
+								"id": message.new_report.id,
+								"status": message.new_report.status,
+								"submission_date": message.new_report.submission_date,
+								"latitude": message.new_report.latitude,
+								"longitude": message.new_report.longitude,
+								"place": response.results[0].formatted,
+								"comment": message.new_report.comment,
+								"images": message.new_report.images.map(i => ({"path":i}))
+							}
+						}))
+					})
+				})
 				break
 			
 			case 'NEW_HISTORY':
@@ -180,6 +199,13 @@ wss.on('connection', function incoming(ws) {
 					if (error) throw error;
 					console.log("Successfully updated report status in DB")
 				})
+				
+				body = {
+					"url_images": message.url_images,
+					"biomass_name": message.identity
+				}
+				console.log("Posting JSON to ML")
+				postJSON("http://192.168.1.85:5001/add_images",body).then(val => {}).catch(e => {})
 				break
 				
 		}
