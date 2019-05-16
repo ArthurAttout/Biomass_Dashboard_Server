@@ -2,6 +2,7 @@ const WebSocket = require('ws');
 const uuidv4 = require('uuid/v4');
 const mysql = require('mysql');
 const getJSON = require('get-json')
+const postJSON = require('simple-post-json')
 
 console.log("Attemtping to reach MYSQL")
 
@@ -21,11 +22,12 @@ const wss = new WebSocket.Server({ port: 8080 });
 
 const geoloc_url_pref = 'https://api.opencagedata.com/geocode/v1/json?q='
 const geoloc_url_suff = '&key=c51e1cfb6b70497a94cb4d714cda5afa' 
+const url_ML = "http://192.168.1.85:5001/add_images"
 
 const queryReportsByName = `
 SELECT report.* from report
 inner join researcher on report.FK_Researcher = researcher.ID
-where researcher.username = ?
+where researcher.username = ? and report.status = 1
 `
 
 const queryImagesOfReport = `
@@ -42,6 +44,14 @@ inner join biomass on biomass.id = history.FK_Biomass
 limit 10;
 `
 
+const queryBiomassList = `
+SELECT id,name FROM biomass_database.biomass;
+`
+
+const queryIdentifyReport = `
+UPDATE report SET status='2', FK_Biomass=? WHERE id=?;
+`
+
 wss.on('connection', function incoming(ws) {
 	
 	console.log("New connection")
@@ -51,7 +61,7 @@ wss.on('connection', function incoming(ws) {
 		websocketMap.delete(ws.id)
 		console.log("Current WS map : ")
 		websocketMap.forEach((v,k) => {
-			console.log("%s -> %s",k,JSON.stringify(v))
+			console.log("%s -> %s",k,v.username)
 		})
 	});
 	
@@ -84,12 +94,13 @@ wss.on('connection', function incoming(ws) {
 				
 			case 'NEW_REPORT':
 				console.log("Received a new report")
+				break
 			
 			case 'NEW_HISTORY':
 				console.log("Received a new history entry")
 				websocketMap.forEach((v,k) => {
-					console.log("Sending new history elem to %s, username %s",v,k.username)
-					k.ws.send(JSON.stringify({
+					console.log("Sending new history elem to %s, key %s",k,JSON.stringify(v))
+					v.ws.send(JSON.stringify({
 						"result":"NEW_HISTORY",
 						"elem":message.elem
 					}))
@@ -103,6 +114,17 @@ wss.on('connection', function incoming(ws) {
 					ws.send(JSON.stringify({
 						"result":"OK_HISTORY",
 						"history":results
+					}))
+				})
+				break
+				
+			case 'GET_BIOMASS_LIST':
+				console.log("Received requests for biomass list")
+				connection.query(queryBiomassList, function (error, results, fields){
+					if (error) throw error;
+					ws.send(JSON.stringify({
+						"result":"OK_BIOMASS_LIST",
+						"biomass_list":results
 					}))
 				})
 				break
@@ -150,6 +172,16 @@ wss.on('connection', function incoming(ws) {
 				
 				connection.query(queryReportsByName,[usernameTarget], onReportsByName)
 				break
+				
+			case 'IDENTIFY_BIOMASS':
+				console.log("Biomass report " + message.report_id + " identified as " + message.biomass_id)
+				
+				connection.query(queryIdentifyReport,[message.biomass_id, message.report_id], function (error, results, fields){
+					if (error) throw error;
+					console.log("Successfully updated report status in DB")
+				})
+				break
+				
 		}
 	});
 });
