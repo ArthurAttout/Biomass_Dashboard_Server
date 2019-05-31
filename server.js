@@ -52,6 +52,24 @@ const queryIdentifyReport = `
 UPDATE report SET status='2', FK_Biomass=? WHERE id=?;
 `
 
+const queryStatsNumberRequests = `
+select date,
+count(*) as val
+from history
+group by date
+order by date asc
+limit 5
+`
+
+const queryTop5Biomass = `
+select biomass.name, 
+count(*) as val
+from history
+inner join biomass on history.FK_Biomass = biomass.id
+group by fk_biomass
+limit 5
+`
+
 wss.on('connection', function incoming(ws) {
 	
 	console.log("New connection")
@@ -145,6 +163,23 @@ wss.on('connection', function incoming(ws) {
 						"result":"OK_BIOMASS_LIST",
 						"biomass_list":results
 					}))
+				})
+				break
+				
+			case 'GET_STATS':
+				console.log("Received requests for stats")
+				connection.query(queryStatsNumberRequests, function (error, resultsNumberRequest, fields){
+					if (error) throw error;
+					
+					connection.query(queryTop5Biomass, function (error, resultsTop5, fields){
+						if (error) throw error;
+					
+						ws.send(JSON.stringify({
+							"result":"OK_STATS",
+							"stats_number_requests":resultsNumberRequest,
+							"stats_top_5_biomass":resultsTop5
+						}))
+					})
 				})
 				break
 
