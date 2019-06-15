@@ -136,7 +136,7 @@ wss.on('connection', function incoming(ws) {
 			case 'NEW_HISTORY':
 				console.log("Received a new history entry")
 				websocketMap.forEach((v,k) => {
-					console.log("Sending new history elem to %s, key %s",k,JSON.stringify(v))
+					console.log("Sending new history elem to %s, key %s",k,v.username)
 					v.ws.send(JSON.stringify({
 						"result":"NEW_HISTORY",
 						"elem":message.elem
